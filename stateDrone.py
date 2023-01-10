@@ -12,13 +12,13 @@ class StateDrone:
     def print_idDrone(self):
         print(self.idDrone)
 
-    @idDrone.setter     
-    def idDrone(self, idDrone):
-        self.idDrone = idDrone
+    # @idDrone.setter     
+    # def idDrone(self, idDrone):
+    #     self.idDrone = idDrone
 
-    @battery.setter
-    def battery(self, battery):
-        self.battery = battery
+    # @battery.setter
+    # def battery(self, battery):
+    #     self.battery = battery
 
     @property
     def idDrone(self):

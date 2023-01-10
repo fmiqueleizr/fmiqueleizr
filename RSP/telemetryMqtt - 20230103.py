@@ -8,13 +8,12 @@ from paho.mqtt import client as mqtt_client
 
 import json
 
-# import stateDrone
+import stateDrone
 
 
-broker =  '54.233.200.155' # 'localhost'
+broker = 'localhost'
 port = 1883
-topic = "/drones/telemetry"
-topic_ReceivedCommandForCoordinator = "python/mqttFM/Coordinator/Command"
+topic = "python/mqttFM"
 # generate client ID with pub prefix randomly
 client_id = f'python-mqtt-{random.randint(0, 1000)}'
 username = ''
@@ -28,8 +27,6 @@ gBattery = ''
 gFlightMode = ''
 gHeading = ''
 gAirSpeed = ''
-gMissionStep = ''
-gStatus = ''
 
 
 def connect_mqtt():
@@ -45,6 +42,7 @@ def connect_mqtt():
     client.connect(broker, port)
     return client
 
+
 def publish(client, topic, msg):
     result = client.publish(topic, msg)
     # result: [0, 1]
@@ -54,41 +52,9 @@ def publish(client, topic, msg):
     else:
         print(f"Failed to send message to topic {topic}")
 
-
-def subscribe(client: mqtt_client, drone):
-    def on_message(client, userdata, msg):
-        print(f"Received `{msg.payload.decode()}` from `{msg.topic}` topic")
-        # asyncio.run(doCommand(msg, drone)) 
-
-    client.subscribe(topic_ReceivedCommandForCoordinator)
-    client.on_message = on_message
- 
-
-
-async def doCommand(msg, drone):
-    # Acá debería tomar lo enviado por el coordinador y realizarlo
-    print(f"Commando Recibido `{msg.payload.decode()}` en el topico `{msg.topic}` ")
-
-    # async for terrain_info in drone.telemetry.home():
-    #     absolute_altitude = terrain_info.absolute_altitude_m
-    #     break
-    await drone.action.arm()
-    await drone.action.takeoff()
-    await asyncio.sleep(1)
-    # # To fly drone 20m above the ground plane
-    # # flying_alt = absolute_altitude + 5.0
-    
-    # # goto_location() takes Absolute MSL altitude
-    # await drone.action.goto_location(-38.074480, -57.574357, 500, 0)
-
-    # await asyncio.sleep(40) # Acá debería esperar a que llegue al punto
-
-    # print("-- Return")
-    # await drone.action.return_to_launch()
-
 async def run():
 
-    # aux = stateDrone()
+    aux = stateDrone()
 
     client = connect_mqtt()
     client.loop_start()
@@ -99,43 +65,36 @@ async def run():
 
     # Start the tasks
     asyncio.ensure_future(print_battery(drone))
+    # asyncio.ensure_future(print_gps_info(drone))
+    # asyncio.ensure_future(print_in_air(drone))
     asyncio.ensure_future(print_position(drone, client))
     asyncio.ensure_future(print_flightMode_info(drone))
     asyncio.ensure_future(print_heading_info(drone))
     asyncio.ensure_future(print_rawGps_info(drone))
-    asyncio.ensure_future(print_mission_step(drone))
-    asyncio.ensure_future(print_status(drone))
     
-    asyncio.ensure_future(receiveCommandForCoordinator(client, drone))
 
     asyncio.ensure_future(makeData(client))
 
+    # global number
 
-async def receiveCommandForCoordinator(client,drone):
-    subscribe(client, drone)
+    # print("variable global:" + str(number))
+    # number = number + 12
 
-
-async def print_status(drone):
-    global gStatus
-    async for status in drone.telemetry.landed_state():
-        gStatus = status
-
-        # UNKNOWN	
-        # ON_GROUND	
-        # IN_AIR	
-        # TAKING_OFF	
-        # LANDING 
-
-async def print_mission_step(drone):
-    global gMissionStep
-    async for mission_step in drone.mission.mission_progress():
-        gMissionStep = mission_step.current
 
 async def print_battery(drone):
     global gBattery
     async for battery in drone.telemetry.battery():
         # print(f"Battery: {battery.remaining_percent}")
         gBattery = round(battery.remaining_percent * 100)
+
+
+async def print_gps_info(drone):
+    async for gps_info in drone.telemetry.gps_info():
+        print(f"GPS info: {gps_info}")
+
+async def print_in_air(drone):
+    async for in_air in drone.telemetry.in_air():
+        print(f"In air: {in_air}")
 
 async def print_flightMode_info(drone):
     global gFlightMode 
@@ -156,16 +115,41 @@ async def print_heading_info(drone):
         gHeading = "{0:.2f}".format(heading.heading_deg) 
 
 async def print_position(drone, client):
+    # aux = 1
+
     global gLatitude_deg
     global gLongitude_deg
     global gAltitude_m
 
+    # global number
     async for position in drone.telemetry.position():
-        gLatitude_deg = str(position.latitude_deg)[:10]
-        gLongitude_deg = str(position.longitude_deg)[:10]
-        gAltitude_m = str("{0:.2f}".format(position.relative_altitude_m))
+        # print(position.latitude_deg, ", ", position.longitude_deg)
+        # await asyncio.sleep(120)
 
+        # if (datetime.now().second % 10 == 0):
 
+            gLatitude_deg = str(position.latitude_deg)[:10]
+            gLongitude_deg = str(position.longitude_deg)[:10]
+            gAltitude_m = str("{0:.2f}".format(position.relative_altitude_m))
+
+            # publish(client, topic, "json: " + str(position.latitude_deg) + ", " + str(position.longitude_deg))
+
+            # stateDrone = {
+            #     "idDrone": "0001",
+            #     "battery": "",
+            #     "latitude": str(position.latitude_deg),
+            #     "longitude": str(position.longitude_deg)
+            # }
+
+            # publish(client, topic, json.dumps(stateDrone))
+
+            # print(position.latitude_deg, ", ", position.longitude_deg)
+            # print(aux)
+            # aux = aux + 1
+            # Debería publicar los datos del drone para el FrontEnd
+
+            # print("variable global:" + str(number))
+            # number = number + 15        
 
 async def makeData(client):
     # global number
@@ -182,15 +166,13 @@ async def makeData(client):
         await asyncio.sleep(5)
 
         stateDrone = {
-            "idDrone": "D001",
+            "idDrone": "0001",
             "battery": str(gBattery),
-            "status": str(gStatus),
             "latitude": str(gLatitude_deg),
             "longitude": str(gLongitude_deg),
             "altitude": str(gAltitude_m),
             "air_speed": str(gAirSpeed),
             "heading": str(gHeading),
-            "mission_step": str(gMissionStep),
             "low_level_state": str(gFlightMode),
         }
 
